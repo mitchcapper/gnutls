@@ -384,7 +384,7 @@ static int load_dir_certs(const char *dirname, gnutls_x509_trust_list_t list,
 	int r = 0;
 	struct gnutls_pathbuf_st pathbuf;
 
-#if !defined(_WIN32) || !defined(_UNICODE)
+#if 1
 	DIR *dirp;
 	struct dirent *d;
 
