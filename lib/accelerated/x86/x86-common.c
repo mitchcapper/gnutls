@@ -44,7 +44,18 @@
 #define __get_cpuid(...) 0
 #define __get_cpuid_count(...) 0
 #endif
+#ifdef _MSC_VER
+int
+__get_cpuid_max(unsigned int e, unsigned int *s)
+{
+	uint32_t cpuinfo[4];
 
+	__cpuid(cpuinfo, e);
+	if (s)
+		*s = cpuinfo[1];
+	return cpuinfo[0];
+}
+#endif
 /* ebx, ecx, edx 
  * This is a format compatible with openssl's CPUID detection.
  */
@@ -132,8 +143,16 @@ static inline void get_cpuid_level7(unsigned int *eax, unsigned int *ebx,
 	/* we avoid using __get_cpuid_count, because it is not available with gcc 4.8 */
 	if (__get_cpuid_max(7, 0) < 7)
 		return;
-
+#ifndef _MSC_VER
 	__cpuid_count(7, 0, *eax, *ebx, *ecx, *edx);
+#else
+	int regs_array[4];
+	__cpuidex(regs_array, 7, 0);
+	*eax = regs_array[0];
+	*ebx = regs_array[1];
+	*ecx = regs_array[2];
+	*edx = regs_array[3];
+#endif
 	return;
 }
 #else
