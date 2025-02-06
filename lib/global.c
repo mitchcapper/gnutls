@@ -49,11 +49,12 @@
 #ifdef __sun
 #pragma fini(lib_deinit)
 #pragma init(lib_init)
-#define _CONSTRUCTOR
-#define _DESTRUCTOR
+#define CONSTRUCTOR(f) \
+        static void f(void)
 #else
-#define _CONSTRUCTOR __attribute__((constructor))
-#define _DESTRUCTOR __attribute__((destructor))
+// this will work for windows or non windows systems
+#define WLB_CONSTRUCTOR_SUPPORT
+#include "../osfixes.h"
 #endif
 
 #ifndef _WIN32
@@ -501,39 +502,12 @@ const char *gnutls_check_version(const char *req_version)
 	return NULL;
 }
 
-static void _CONSTRUCTOR lib_init(void)
-{
-	int ret;
-	const char *e;
 
-	if (_gnutls_global_init_skip() != 0)
-		return;
 
-	e = secure_getenv("GNUTLS_NO_IMPLICIT_INIT");
-	if (e != NULL) {
-		ret = atoi(e);
-		if (ret == 1)
-			return;
-	}
 
-	e = secure_getenv("GNUTLS_NO_EXPLICIT_INIT");
-	if (e != NULL) {
-		_gnutls_debug_log(
-			"GNUTLS_NO_EXPLICIT_INIT is deprecated; use GNUTLS_NO_IMPLICIT_INIT\n");
-		ret = atoi(e);
-		if (ret == 1)
-			return;
-	}
 
-	ret = _gnutls_global_init(1);
-	if (ret < 0) {
-		fprintf(stderr, "Error in GnuTLS initialization: %s\n",
-			gnutls_strerror(ret));
-		_gnutls_switch_lib_state(LIB_STATE_ERROR);
-	}
-}
 
-static void _DESTRUCTOR lib_deinit(void)
+static void lib_deinit(void)
 {
 	int ret;
 	const char *e;
@@ -558,6 +532,34 @@ static void _DESTRUCTOR lib_deinit(void)
 	}
 
 	_gnutls_global_deinit(1);
+}
+CONSTRUCTOR(lib_init)
+{
+	int ret;
+	const char *e;
+	if (_gnutls_global_init_skip() != 0)
+		return;
+	atexit(lib_deinit);
+	e = secure_getenv("GNUTLS_NO_IMPLICIT_INIT");
+	if (e != NULL) {
+		ret = atoi(e);
+		if (ret == 1)
+			return;
+	}
+	e = secure_getenv("GNUTLS_NO_EXPLICIT_INIT");
+	if (e != NULL) {
+		_gnutls_debug_log(
+			"GNUTLS_NO_EXPLICIT_INIT is deprecated; use GNUTLS_NO_IMPLICIT_INIT\n");
+		ret = atoi(e);
+		if (ret == 1)
+			return;
+	}
+	ret = _gnutls_global_init(1);
+	if (ret < 0) {
+		fprintf(stderr, "Error in GnuTLS initialization: %s\n",
+			gnutls_strerror(ret));
+		_gnutls_switch_lib_state(LIB_STATE_ERROR);
+	}
 }
 
 static const struct gnutls_library_config_st _gnutls_library_config[] = {
